@@ -20,6 +20,17 @@ const chromePath = () => CANDIDATES.find(p => { try { fs.accessSync(p, fs.consta
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Browser messages that are known and unrelated to the page code, so they don't fail "no browser errors" checks.
+ * Keep this list short and explain each one.
+ *  - Chrome's install-as-app checker runs at random moments and won't use the SVG-only manifest icon
+ *    (it wants PNG icons). Pre-existing; tracked separately: add PNG icons to the manifest.
+ *  - That same checker downloads the manifest in the background; when a test moves to the next page
+ *    quickly, the download is cut off and Chrome reports the empty result as a syntax error. The real
+ *    manifest is checked directly in http.test.js ("app manifest is valid JSON").
+ */
+const KNOWN_NOISE = [/Error while trying to use the following icon from the Manifest/, /^Manifest: Line: 1, column: 1, Syntax error/];
+
 class Page {
   constructor(ws) {
     this.ws = ws; this.id = 0; this.pending = new Map(); this.listeners = [];
@@ -38,7 +49,7 @@ class Page {
       }
       if (m.method === 'Runtime.exceptionThrown') this.consoleErrors.push('exception: ' + (m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
       if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') this.consoleErrors.push('console: ' + m.params.args.map(a => a.value ?? a.description).join(' '));
-      if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') this.consoleErrors.push('log: ' + m.params.entry.text + (m.params.entry.url ? ' ' + m.params.entry.url : ''));
+      if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error' && !KNOWN_NOISE.some(re => re.test(m.params.entry.text))) this.consoleErrors.push('log: ' + m.params.entry.text + (m.params.entry.url ? ' ' + m.params.entry.url : ''));
     });
   }
   on(fn) { this.listeners.push(fn); }
@@ -98,7 +109,9 @@ async function launch({ timezone = 'America/New_York' } = {}) {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ko-chrome-'));
   const proc = spawn(bin, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check',
     '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--autoplay-policy=no-user-gesture-required',
-    '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    '--no-sandbox', '--disable-gpu', '--disable-background-networking', '--disable-component-update', '--disable-sync', '--metrics-recording-only', '--disable-dev-shm-usage', 'about:blank'],
+  // detached: Chrome gets its own process group, so closing it also closes its helper processes.
+  { stdio: ['ignore', 'ignore', 'pipe'], detached: process.platform !== 'win32' });
   const wsUrl = await new Promise((resolve, reject) => {
     let buf = ''; const t = setTimeout(() => reject(new Error('Chrome did not start:\n' + buf)), 15000);
     proc.stderr.on('data', d => { buf += d; const m = buf.match(/DevTools listening on (ws:\/\/\S+)/); if (m) { clearTimeout(t); resolve(m[1]); } });
@@ -107,19 +120,26 @@ async function launch({ timezone = 'America/New_York' } = {}) {
   const httpBase = wsUrl.replace(/^ws/, 'http').replace(/\/devtools\/browser\/.*/, '');
   const pages = [];
   return {
-    async newPage() {
+    async newPage(opts = {}) {
       const t = await (await fetch(httpBase + '/json/new?about:blank', { method: 'PUT' })).json();
       const ws = new WebSocket(t.webSocketDebuggerUrl);
       await new Promise((res, rej) => { ws.addEventListener('open', res, { once: true }); ws.addEventListener('error', rej, { once: true }); });
       const p = new Page(ws); await p.init();
-      await p.send('Emulation.setTimezoneOverride', { timezoneId: timezone });
+      await p.send('Emulation.setTimezoneOverride', { timezoneId: opts.timezone || timezone });
+      await p.send('Emulation.setFocusEmulationEnabled', { enabled: true });   // headless pages are never "focused"; clipboard needs it
       await p.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
       await p.send('Browser.grantPermissions', { permissions: ['clipboardReadWrite', 'clipboardSanitizedWrite', 'audioCapture'] }).catch(() => { });
       pages.push(p); return p;
     },
     async close() {
       for (const p of pages) await p.close();
-      proc.kill('SIGKILL'); await new Promise(r => proc.exitCode !== null ? r() : proc.once('exit', r));
+      const gone = proc.exitCode !== null || proc.signalCode !== null;
+      if (!gone) {
+        const exited = new Promise(r => proc.once('exit', r));
+        try { process.kill(process.platform === 'win32' ? proc.pid : -proc.pid, 'SIGKILL'); } catch { try { proc.kill('SIGKILL'); } catch { } }
+        await Promise.race([exited, sleep(5000)]);
+      }
+      proc.stderr?.destroy(); proc.unref();
       fs.rmSync(profile, { recursive: true, force: true });
     },
   };

@@ -24,13 +24,27 @@ Health check: `GET /health`.
 Work goes into `dev` by pull request, then `dev` → `stage` to test, then `stage` → `main` to release.
 CI checks every file and boots the app with demo data on every push and pull request.
 
+## Tests
+
+```bash
+npm test                  # everything: server tests + browser tests
+node test/run.js http     # just the server tests
+node test/run.js browser  # just the browser tests (needs Chrome; set CHROME_PATH if it isn't found)
+```
+
+No packages to install. Each test file starts its own server on a throwaway SQLite database with the demo
+data, so tests never touch real data. Browser tests drive a real headless Chrome through its built-in
+debugging protocol: click, then check the page changed, then reload to check it really saved.
+Without Chrome the browser tests are reported as skipped, never as passed.
+
 ## Layout
 
 - `server.js`: starts the app and routes each request
 - `routes/`: one file per area (board, items, people, projects, calls, notes, time off, training, insights, admin…)
 - `lib/`: database (`db.js`, `schema.js`), shared app helpers, email, metrics and background jobs
 - `seed.js`: demo data
-- `public/`: stylesheet and icon
+- `public/`: stylesheet, icon and `app.js` (the page script: knock out, drag and drop, Move/Share choosers, recording, …)
+- `test/`: regression tests (`npm test`)
 
 ## Known gap
 

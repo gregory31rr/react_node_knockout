@@ -40,8 +40,13 @@ async function startServer(env = {}) {
     /** Lines the server printed that look like crashes (500s are logged with a timestamp and the request). */
     errors: () => log.join('').split('\n').filter(l => /Error|could not start|failed/i.test(l)),
     async stop() {
-      proc.kill('SIGTERM');
-      await new Promise(r => { if (proc.exitCode !== null) r(); else proc.once('exit', r); });
+      if (proc.exitCode === null && proc.signalCode === null) {
+        const exited = new Promise(r => proc.once('exit', r));
+        proc.kill('SIGTERM');
+        const t = setTimeout(() => { try { proc.kill('SIGKILL'); } catch { } }, 5000);
+        await exited; clearTimeout(t);
+      }
+      proc.stdout.destroy(); proc.stderr.destroy();
       fs.rmSync(dataDir, { recursive: true, force: true });
     },
   };

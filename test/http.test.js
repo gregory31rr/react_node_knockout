@@ -50,6 +50,13 @@ describe('static files', () => {
     const src = await (await fetch(srv.base + '/static/app.js')).text();
     assert.doesNotThrow(() => new Function(src));
   });
+  test('app manifest is valid JSON with the app name and icon', async () => {
+    for (let i = 0; i < 20; i++) {   // the same answer every time, not just once
+      const r = await fetch(srv.base + '/manifest.webmanifest'); assert.equal(r.status, 200);
+      assert.match(r.headers.get('content-type'), /manifest\+json/);
+      const m = JSON.parse(await r.text()); assert.equal(m.name, 'Knockout'); assert.ok(m.icons?.length);
+    }
+  });
   test('path tricks cannot read files outside public/', async () => {
     const r = await fetch(srv.base + '/static/..%2f..%2fserver.js'); assert.equal(r.status, 404);
   });
