@@ -163,19 +163,25 @@ app.post('/calls/:id/delete', async (req, res) => {
 
 // ───────────── recording ─────────────
 const MAX_REC = 40 * 1024 * 1024;
-async function removeRecording(m) { await run('DELETE FROM recordings WHERE meeting_id=?', m.id); }
-async function recordingBytes(m) { const r = await one('SELECT data FROM recordings WHERE meeting_id=?', m.id); return r ? U.decryptBuffer(Buffer.from(r.data)) : null; }
+// Where recordings are kept (database, or file storage such as DigitalOcean Spaces): lib/recordings.js.
+const R = require('../lib/recordings'), { S3Error } = require('../lib/s3');
+/** File storage down or refusing: a clear message, and nothing was changed. */
+async function stored(fn) {
+  try { return await fn(); }
+  catch (e) { if (e instanceof S3Error) { console.error('recordings:', e.message); throw new A.HttpError(503, `${e.message} Nothing was changed. Try again in a minute.`); } throw e; }
+}
+const removeRecording = m => stored(() => R.remove(m.id));
+const recordingBytes = m => stored(() => R.load(m.id));
 app.post('/calls/:id/recording', async (req, res) => {
   A.adminOnly(req); const m = await getCall(req, req.params.id);
   const f = req.files.find(x => x.field === 'audio'); if (!f || f.data.length < 100) bad('No audio came through.');
   if (f.data.length > MAX_REC) bad('That recording is over 40 MB. Record shorter parts.');
   const type = /^audio\/(webm|ogg|mp4|mpeg|wav|x-m4a|aac)/.test(f.type || '') ? f.type.split(';')[0] : 'audio/webm';
   const name = `call-${m.id}.${{ 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/aac': 'aac' }[type] || 'webm'}`;
-  await tx(async () => {
-    await removeRecording(m);
-    await run('INSERT INTO recordings(meeting_id,workspace_id,data,type,bytes) VALUES(?,?,?,?,?)', m.id, req.ws.id, U.encryptBuffer(f.data), type, f.data.length);   // stored encrypted
+  await stored(() => tx(async () => {
+    await R.save(m.id, req.ws.id, f.data, type);   // stored encrypted; replaces any earlier recording
     await run('UPDATE meetings SET recording=?, recording_type=?, recording_secs=?, transcript=NULL WHERE id=?', name, type, W.num(req.body.secs, 0, 36000), m.id);
-  });
+  }));
   await A.audit(req, 'recorded a call', { call: m.id });
   res.json({ ok: true });
 });

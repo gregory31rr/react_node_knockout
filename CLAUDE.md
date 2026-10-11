@@ -7,7 +7,7 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 
 **Done**
 - Baseline copy of knockout committed (recoverable checkpoint).
-- Regression test suite: `npm test`, no outside packages. 110 tests on PostgreSQL (82 on SQLite): server, real-Chrome end-to-end, and database-connection tests.
+- Regression test suite: `npm test`, no outside packages. 126 tests on PostgreSQL (98 on SQLite): server, real-Chrome end-to-end, and database-connection tests.
   CI runs it on every push and pull request.
 - Missing page script `public/app.js` rebuilt. All interactive features work: confirmations, knock out with Undo,
   board drag and drop, the Move and Share choosers, recording calls, autosave, copy, local time zones.
@@ -21,10 +21,14 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 - **Safe on several servers** (PR #4, `feature/multi-server`): sign-in lockout and flood protection count in the database
   (`lib/limits.js`, table `ko_counters`, migration 1); background chores take a PostgreSQL advisory lock so they run once.
   Proven by tests running 2 servers and 4 chore processes on one database (old code: reminders sent ×4).
+- **Recordings in file storage** (PR #5, `feature/recording-storage`): `lib/s3.js` (S3/Spaces client, built-in modules,
+  signing verified against AWS's published examples), `lib/recordings.js` (database by default; Spaces when
+  `STORAGE_*` is set; encrypted either way), migration 2 (`recordings.object_key`). Workspace deletion removes the
+  workspace's whole storage folder first and refuses if storage is down. Tested with `test/helpers/fakes3.js`.
 
 **Known gaps (not fixed yet)**
-- Last scale blocker: call recordings (up to 40 MB each) are stored in the database and buffered in memory.
-  Move to object storage (DigitalOcean Spaces) once the account exists.
+- Recordings: file storage is built (PR #5) but not yet tried on a real Spaces bucket. Uploads and playback are still
+  read whole into memory (up to 40 MB each, plus decryption); streaming them is a later improvement.
 - The app-install (PWA) icon is SVG only; Chrome wants PNG icons.
 - Press-and-hold on touch screens opens the Move chooser; it does not support dragging with a finger.
 - Not tested: real phones, Safari, Firefox and a real microphone.
@@ -46,8 +50,10 @@ When a feature gets tests, move it from 🟡 to ✅. Never mark something ✅ un
 2. ~~Restore PostgreSQL support~~ Done (PR #3). Local testing: a PostgreSQL 16 server is installed in Claude's workspace
    (`/usr/lib/postgresql/16/bin`); run it as the `postgres` user with SCRAM + TLS, then `TEST_DATABASE_URL=… npm test`.
 3. Scale blockers: ~~shared rate limiter~~ and ~~run-once jobs~~ done (PR #4, in the database, no Redis needed).
-   Left: recordings to object storage (Spaces) with streaming uploads; monitoring.
-4. Once the DigitalOcean account and token exist: write the deploy workflow, deploy `stage` and then `main`, and verify `/health` on the live site.
+   ~~Recordings to object storage~~ done (PR #5); try on a real Spaces bucket once the account exists.
+   Left: streaming uploads/playback (memory), monitoring.
+4. Once the DigitalOcean account and token exist: write the deploy workflow, create the Spaces bucket and keys
+   (set STORAGE_* on the app), deploy `stage` and then `main`, and verify `/health` and a recording on the live site.
 5. Later, only after production readiness: move the UI to React with an Express API, one area at a time.
    This is a maintainability choice; it does not help the app scale.
 
