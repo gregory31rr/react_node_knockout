@@ -87,6 +87,10 @@ app.post('/admin/workspaces/:id', async (req, res) => {
 /** Remove a workspace and everything in it (recordings too). One line stays in the activity log. */
 async function eraseWorkspace(id, req) {
   const w = await one('SELECT * FROM workspaces WHERE id=?', id); if (!w) return;
+  // Recordings in file storage aren't removed by the database, so remove them first. If storage can't be
+  // reached, stop here: nothing is deleted, and it can be tried again.
+  try { await require('../lib/recordings').eraseWorkspace(id); }
+  catch (e) { console.error('erase workspace: recordings:', e.message); throw new A.HttpError(503, `The workspace's call recordings couldn't be deleted from file storage (${e.message}) Nothing was deleted. Try again in a minute.`); }
   await tx(async () => {
     const ppl = (await all('SELECT user_id FROM memberships WHERE workspace_id=?', id)).map(r => r.user_id);
     await run('UPDATE users SET workspace_id=NULL WHERE workspace_id=?', id);

@@ -83,6 +83,8 @@ Who can use it: **Manager** = workspace admin · **Member** = team member with a
 | Call notes save by themselves as you type | Manager | ✅ |
 | Record a call with the microphone, play it back, delete it | Manager | ✅ (with Chrome's test microphone) ⚠️ Not tried on a real microphone or Safari |
 | Recordings stored encrypted | Manager | ✅ round-trip tested |
+| Recordings in file storage (DigitalOcean Spaces / S3) when `STORAGE_*` is set; database otherwise | Manager | ✅ (test storage server; signing checked against AWS's published examples) ⚠️ Not yet tried on a real Spaces bucket |
+| Deleting a workspace removes all its recordings from storage (refused, with nothing deleted, if storage is down) | Owner, Manager | ✅ |
 | Start / end a call, add or remove people, delete a call | Manager | 🟡 |
 | Turn a recording into text, with suggested answers | Manager | 🟡 Needs `TRANSCRIBE_API_KEY` |
 | Call summary: email it, open in your email, or copy for Teams | Manager | 🟡 Copy ✅; email needs `RESEND_API_KEY` |
@@ -140,6 +142,5 @@ Who can use it: **Manager** = workspace admin · **Member** = team member with a
 | Works on phones (tab bar, big buttons) | 🟡 Not tested on real phones |
 
 ## Not yet built (planned)
-- Recordings in object storage (last scale blocker; needs DigitalOcean Spaces).
 - Deploy to DigitalOcean (Render as fallback).
 - React frontend with an Express API (after production readiness).

@@ -61,3 +61,11 @@ Tables are created on first start. Optional: `PG_POOL_MAX` (connections per serv
 
 Run the tests on PostgreSQL: `TEST_DATABASE_URL="postgres://user:pass@localhost:5432/postgres" npm test`
 (each test file gets its own new database, dropped afterwards). CI runs the suite on both databases.
+
+## Call recordings
+
+By default recordings are kept in the database. For production, keep them in S3-compatible file storage
+(DigitalOcean Spaces) so the database and its backups stay small: set `STORAGE_ENDPOINT`, `STORAGE_REGION`,
+`STORAGE_BUCKET`, `STORAGE_KEY` and `STORAGE_SECRET` (see `.env.example`). Recordings are encrypted by Knockout
+before they're stored, either way. Recordings already in the database keep playing after the switch.
+Deleting a workspace removes all of its files from storage first; if storage can't be reached, nothing is deleted.
