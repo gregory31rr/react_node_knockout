@@ -1,0 +1,15 @@
+{
+  "name": "knockout",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Knockout: track, delegate and knock out your work. Node.js + PostgreSQL, no outside packages.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "demo": "SEED_DEMO=1 node server.js",
+    "test": "node test/run.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

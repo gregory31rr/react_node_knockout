@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, stage, main]
+  push:
+    branches: [dev, stage, main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check every file
+        run: find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Start with demo data and hit /health
+        run: |
+          PORT=3000 SEED_DEMO=1 NO_JOBS=1 DATA_DIR=$RUNNER_TEMP/kdata node server.js > server.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf localhost:3000/health && break
+            sleep 1
+          done
+          curl -sf localhost:3000/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:3000/login)" = 200
+      - name: Server log
+        if: always()
+        run: cat server.log || true

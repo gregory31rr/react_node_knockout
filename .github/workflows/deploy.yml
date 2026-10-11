@@ -1,0 +1,26 @@
+name: Deploy
+
+# dev   branch -> development environment
+# stage branch -> staging environment
+# main  branch -> production environment
+# Hosting is planned on DigitalOcean App Platform; until that's set up this only records the deploy.
+on:
+  push:
+    branches: [dev, stage, main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || github.ref_name == 'stage' && 'staging' || 'development' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          echo "knockout ${{ github.sha }} for ${{ github.ref_name }}"
+          echo "No hosting target configured yet (DigitalOcean planned)."
