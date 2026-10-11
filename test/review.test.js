@@ -7,12 +7,10 @@
  */
 const { test, before, after, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
 const { startServer } = require('./helpers/server');
 const { Client } = require('./helpers/http');
 
-let srv, greg, priya, db;
+let srv, greg, priya;
 const day = n => { const d = new Date(); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10) + ' 12:00:00'; };
 const ids = html => new Set([...html.matchAll(/<li class="item[^"]*" data-item="(\d+)"/g)].map(m => Number(m[1])));
 const tile = (html, which) => Number((html.match(new RegExp(`data-review="${which}"><b>(\\d+)%?</b>`)) || [])[1]);
@@ -24,21 +22,19 @@ before(async () => {
   greg = await new Client(srv.base).login('greg@demo.test');
   priya = await new Client(srv.base).login('priya@demo.test');
   await greg.post('/view', { mode: 'full' });
-  db = new DatabaseSync(path.join(srv.dataDir, 'knockout.db'));
-  db.exec('PRAGMA busy_timeout = 5000');
+  const db = srv.db();
   // Six of Greg's workspace items, made into a known history.
-  const ws = db.prepare("SELECT workspace_id FROM users WHERE email='greg@demo.test'").get().workspace_id;
-  const pick = db.prepare('SELECT id FROM items WHERE workspace_id=? AND private=0 ORDER BY id LIMIT 6').all(ws).map(r => Number(r.id));
+  const ws = (await db.all("SELECT workspace_id FROM users WHERE email='greg@demo.test'"))[0].workspace_id;
+  const pick = (await db.all('SELECT id FROM items WHERE workspace_id=? AND private=0 ORDER BY id LIMIT 6', ws)).map(r => Number(r.id));
   assert.equal(pick.length, 6, 'demo data should have 6+ items');
   const plan = { open10: ['open', 10], open45: ['open', 45], open500: ['open', 500], done20: ['done', 20], done75: ['done', 75], done200: ['done', 200] };
   Object.keys(plan).forEach((k, n) => { T[k] = pick[n]; });
-  const set = db.prepare('UPDATE items SET status=?, created_at=?, completed_at=? WHERE id=?');
   for (const [k, [status, ago]] of Object.entries(plan)) {
     // Done items were added a little before they were finished; open items have no finish date.
-    set.run(status, day(status === 'done' ? ago + 5 : ago), status === 'done' ? day(ago) : null, T[k]);
+    await db.run('UPDATE items SET status=?, created_at=?, completed_at=? WHERE id=?', status, day(status === 'done' ? ago + 5 : ago), status === 'done' ? day(ago) : null, T[k]);
   }
 });
-after(async () => { db?.close(); await srv?.stop(); });
+after(async () => { await srv?.stop(); });
 
 const list = async (q, who = greg) => { const r = await who.get('/items?' + new URLSearchParams(q)); assert.equal(r.status, 200, JSON.stringify(q)); return r.body; };
 const has = (html, ...keys) => keys.forEach(k => assert.ok(ids(html).has(T[k]), `${k} (item ${T[k]}) should be listed`));

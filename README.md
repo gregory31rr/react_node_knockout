@@ -47,8 +47,17 @@ Without Chrome the browser tests are reported as skipped, never as passed.
 - `test/`: regression tests (`npm test`)
 - `FEATURES.md`: every active feature and its test status (kept up to date with each change)
 
-## Known gap
+## PostgreSQL
 
-`lib/pg.js` (the PostgreSQL connection that `lib/db.js` loads when `DATABASE_URL` is set) was not part of
-the code recovered from the browser demo. Locally and in the demo the app uses SQLite, so it runs fine;
-it needs to be added back before production runs on PostgreSQL.
+Set `DATABASE_URL` and Knockout uses PostgreSQL; leave it empty and it uses the built-in SQLite file.
+
+```bash
+DATABASE_URL="postgres://user:password@host:5432/db?sslmode=require" node server.js
+```
+
+The connection (`lib/pg.js`) uses only Node's built-in modules: SCRAM-SHA-256 sign-in (what managed databases use) and
+encryption set by `sslmode` (`disable`, `prefer`, `require`, `verify-ca`, `verify-full` with `PGSSLROOTCERT`).
+Tables are created on first start. Optional: `PG_POOL_MAX` (connections per server, default 10).
+
+Run the tests on PostgreSQL: `TEST_DATABASE_URL="postgres://user:pass@localhost:5432/postgres" npm test`
+(each test file gets its own new database, dropped afterwards). CI runs the suite on both databases.

@@ -7,7 +7,7 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 
 **Done**
 - Baseline copy of knockout committed (recoverable checkpoint).
-- Regression test suite: `npm test`, no outside packages. 76 tests: 51 server tests and 25 end-to-end tests in real Chrome.
+- Regression test suite: `npm test`, no outside packages. 101 tests on PostgreSQL (77 on SQLite): server, real-Chrome end-to-end, and database-connection tests.
   CI runs it on every push and pull request.
 - Missing page script `public/app.js` rebuilt. All interactive features work: confirmations, knock out with Undo,
   board drag and drop, the Move and Share choosers, recording calls, autosave, copy, local time zones.
@@ -16,9 +16,11 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 - Items **Period filter** (30 / 60 / 90 days / all time = 13 months) with a completed-vs-remaining summary.
   Pull request #2 (`feature/review-filters`, built on #1). Merge #1 first.
   Definitions: Completed = knocked out in the period; Remaining = still open and added in the period.
+- **PostgreSQL support** (`lib/pg.js`, built-in modules only: SCRAM sign-in, TLS via sslmode, pool, transactions).
+  The full suite passes on PostgreSQL; CI runs it on both databases. Pull request #3 (`feature/postgres`).
+  Fixed during testing: big answers (recordings) were read quadratically (20 MB: 48 s → 0.3 s).
 
 **Known gaps (not fixed yet)**
-- `lib/pg.js` (the PostgreSQL connection) is missing, so the app runs only on SQLite. It is not production-ready until this is fixed.
 - Scale blockers for large user counts:
   - The rate limiter lives in one process's memory.
   - Background jobs run in every web server.
@@ -41,8 +43,8 @@ When a feature gets tests, move it from 🟡 to ✅. Never mark something ✅ un
 
 ## Next steps (in order)
 1. Merge PR #1 after review.
-2. Restore PostgreSQL support (`lib/pg.js`). npm is blocked in Claude's workspace, so test against a real Postgres database
-   in GitHub Actions (a `services: postgres` job) and run the full suite there.
+2. ~~Restore PostgreSQL support~~ Done (PR #3). Local testing: a PostgreSQL 16 server is installed in Claude's workspace
+   (`/usr/lib/postgresql/16/bin`); run it as the `postgres` user with SCRAM + TLS, then `TEST_DATABASE_URL=… npm test`.
 3. Fix the scale blockers:
    - a shared rate limiter (Redis)
    - jobs that run once across all servers
@@ -54,7 +56,7 @@ When a feature gets tests, move it from 🟡 to ✅. Never mark something ✅ un
 
 ## Stack
 - Today: Node.js 22.13+ using only built-in modules (its own small web framework in `lib/app.js`),
-  server-rendered pages with `public/app.js`, SQLite locally, PostgreSQL planned for production.
+  server-rendered pages with `public/app.js`, SQLite locally, PostgreSQL in production (`lib/pg.js`).
 - Planned (step 5 above): a React frontend with an Express backend (routes → controllers → services → data layer).
 
 ## Running it
