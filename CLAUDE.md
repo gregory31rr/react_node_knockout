@@ -7,12 +7,15 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 
 **Done**
 - Baseline copy of knockout committed (recoverable checkpoint).
-- Regression test suite: `npm test`, no outside packages. 61 tests: 37 server tests and 24 end-to-end tests in real Chrome.
+- Regression test suite: `npm test`, no outside packages. 76 tests: 51 server tests and 25 end-to-end tests in real Chrome.
   CI runs it on every push and pull request.
 - Missing page script `public/app.js` rebuilt. All interactive features work: confirmations, knock out with Undo,
   board drag and drop, the Move and Share choosers, recording calls, autosave, copy, local time zones.
 - Fixed: the `[hidden]` CSS rule was inside a comment; reminders and calls were saved in the wrong time zone.
 - Pull request #1 (`fix/app-js` → `dev`) is open for review. Not merged yet.
+- Items **Period filter** (30 / 60 / 90 days / all time = 13 months) with a completed-vs-remaining summary.
+  Pull request #2 (`feature/review-filters`, built on #1). Merge #1 first.
+  Definitions: Completed = knocked out in the period; Remaining = still open and added in the period.
 
 **Known gaps (not fixed yet)**
 - `lib/pg.js` (the PostgreSQL connection) is missing, so the app runs only on SQLite. It is not production-ready until this is fixed.
