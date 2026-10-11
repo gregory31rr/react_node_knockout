@@ -1,6 +1,6 @@
 /* Knockout — one stylesheet. Change the brand color in ONE place: --accent. Light and dark follow the device unless the
-[hidden]{display:none!important}
    person picks one (Account menu → Dark/Light mode). Text is 16px+, buttons 44px tall, nothing scrolls sideways on phones. */
+[hidden]{display:none!important}
 :root{
   --bg:#f4f5f9; --surface:#fff; --sunk:#eceef4; --ink:#14182b; --muted:#5b6178; --line:#dfe2ec;
   --accent:#e2413b; --accent-ink:#fff; --accent-soft:#fde8e7; --punch:#ffd166; --top:#14182b; --top-ink:#fff;

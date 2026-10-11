@@ -16,6 +16,11 @@ jobs:
           node-version: 22
       - name: Syntax check every file
         run: find . -name '*.js' -not -path './node_modules/*' -print0 | xargs -0 -n1 node --check
+      - name: Regression tests (server + real Chrome)
+        # GitHub's Ubuntu runners come with Google Chrome; the browser tests find it on their own.
+        run: npm test
+        env:
+          REQUIRE_BROWSER: '1'   # fail, don't skip, if Chrome is missing
       - name: Start with demo data and hit /health
         run: |
           PORT=3000 SEED_DEMO=1 NO_JOBS=1 DATA_DIR=$RUNNER_TEMP/kdata node server.js > server.log 2>&1 &
