@@ -1,0 +1,12 @@
+{
+  // GitHub Codespaces: run the Knockout demo in the browser, nothing to install.
+  // It starts the app with demo data (sign in as greg@demo.test / demo1234) and opens it on port 3000.
+  "name": "Knockout demo",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "Knockout", "onAutoForward": "openBrowser" }
+  },
+  "containerEnv": { "SEED_DEMO": "1", "NO_JOBS": "1", "PORT": "3000" },
+  "postAttachCommand": "node server.js"
+}

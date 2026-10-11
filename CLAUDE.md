@@ -1,0 +1,137 @@
+# Knockout — Project Rules and Status
+
+## Current status (updated Oct 11, 2026)
+
+**Repo:** `gregory31rr/react_node_knockout` (working repo). The original `gregory31rr/knockout` is kept untouched as a reference.
+Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull request.
+
+**Done**
+- Baseline copy of knockout committed (recoverable checkpoint).
+- Regression test suite: `npm test`, no outside packages. 58 tests: 34 server tests and 24 end-to-end tests in real Chrome.
+  CI runs it on every push and pull request.
+- Missing page script `public/app.js` rebuilt. All interactive features work: confirmations, knock out with Undo,
+  board drag and drop, the Move and Share choosers, recording calls, autosave, copy, local time zones.
+- Fixed: the `[hidden]` CSS rule was inside a comment; reminders and calls were saved in the wrong time zone.
+- Pull request #1 (`fix/app-js` → `dev`) is open for review. Not merged yet.
+
+**Known gaps (not fixed yet)**
+- `lib/pg.js` (the PostgreSQL connection) is missing, so the app runs only on SQLite. It is not production-ready until this is fixed.
+- Scale blockers for large user counts:
+  - The rate limiter lives in one process's memory.
+  - Background jobs run in every web server.
+  - Call recordings (up to 60 MB each) are stored in the database and buffered in memory.
+- The app-install (PWA) icon is SVG only; Chrome wants PNG icons.
+- Press-and-hold on touch screens opens the Move chooser; it does not support dragging with a finger.
+- Not tested: real phones, Safari, Firefox and a real microphone.
+
+## Hosting decision
+- **DigitalOcean App Platform first**, with managed PostgreSQL. **Render is the fallback** if DigitalOcean causes trouble.
+- Keep everything host-neutral: standard Node, a `DATABASE_URL` setting and `GET /health`. Switching hosts should be a configuration change, not a rewrite.
+- The owner (Greg) creates the accounts and enters payment. Claude never handles payment.
+- Deploys run from GitHub Actions using the repo secret `DIGITALOCEAN_ACCESS_TOKEN`. Claude never sees the token.
+- Check current prices and options before any paid resource is created.
+
+## Next steps (in order)
+1. Merge PR #1 after review.
+2. Restore PostgreSQL support (`lib/pg.js`). npm is blocked in Claude's workspace, so test against a real Postgres database
+   in GitHub Actions (a `services: postgres` job) and run the full suite there.
+3. Fix the scale blockers:
+   - a shared rate limiter (Redis)
+   - jobs that run once across all servers
+   - recordings moved to object storage (Spaces or S3) with streaming uploads
+   - monitoring
+4. Once the DigitalOcean account and token exist: write the deploy workflow, deploy `stage` and then `main`, and verify `/health` on the live site.
+5. Later, only after production readiness: move the UI to React with an Express API, one area at a time.
+   This is a maintainability choice; it does not help the app scale.
+
+## Stack
+- Today: Node.js 22.13+ using only built-in modules (its own small web framework in `lib/app.js`),
+  server-rendered pages with `public/app.js`, SQLite locally, PostgreSQL planned for production.
+- Planned (step 5 above): a React frontend with an Express backend (routes → controllers → services → data layer).
+
+## Running it
+- Demo: `npm run demo`, then open http://localhost:3000 and sign in as `greg@demo.test` / `demo1234`
+  (team member: `priya@demo.test`).
+- Tests: `npm test`. Browser tests need Chrome; set `CHROME_PATH` if it isn't found.
+- In the browser with no install: GitHub Codespaces (see `.devcontainer/`). It starts the demo automatically.
+
+## MANDATORY SOFTWARE DEVELOPMENT RULES
+You are working on an existing production-oriented application.
+Your highest priority is preserving existing functionality while implementing new features.
+
+### RULE 1: NEVER BREAK EXISTING FEATURES
+Before modifying code:
+1. Identify the files that will change.
+2. Identify every feature that depends on those files.
+3. Identify shared functions, APIs, database tables, and event handlers.
+4. Explain potential regression risks.
+5. Preserve existing behavior unless explicitly instructed otherwise.
+
+Do not rewrite entire files unnecessarily.
+Do not remove existing functionality to make new functionality work.
+
+### RULE 2: COMPLETE END-TO-END FUNCTIONALITY
+A feature is NOT complete simply because the interface exists.
+Every button, form, menu, link, and interactive element must have a working implementation.
+Verify the complete pathway:
+User interaction → JavaScript handler → Backend → Database or external service → Response → Updated interface.
+If a feature requires authentication, authorization, notifications, file storage, or additional processing, verify those components too.
+Do not create placeholder functionality and claim the feature is complete.
+
+### RULE 3: AUTOMATED REGRESSION TESTING
+Before modifying code, run the existing automated tests and record the results.
+After modifying code:
+1. Run tests for the new feature.
+2. Run tests for related existing features.
+3. Run the full regression test suite.
+4. Verify database operations.
+5. Verify API responses.
+6. Verify navigation and user permissions.
+7. Check browser and server errors.
+
+If tests do not exist, create appropriate tests before making high-risk changes.
+Do not claim that functionality was tested unless tests actually executed.
+
+### RULE 4: LIMIT CHANGES
+Only modify code necessary to implement the requested feature.
+Avoid unrelated refactoring, renaming, restructuring, dependency changes, or database modifications.
+If a broader change is required, explain why before implementing it.
+
+### RULE 5: VERIFY EVERY USER PATHWAY
+For every new feature, test:
+- Successful operation
+- Invalid input
+- Missing data
+- Permission restrictions
+- Database failures
+- Navigation between pages
+- Refreshing the page
+- Saving and retrieving information
+
+Do not consider the feature complete until the applicable pathways work.
+
+### RULE 6: PRESERVE WORKING VERSIONS
+Before implementing changes, create a Git commit or other recoverable checkpoint.
+If the change causes regressions that cannot be resolved safely, restore the last working version.
+Never destroy the last known working application.
+
+### RULE 7: PROVIDE A COMPLETION REPORT
+After implementation, report:
+1. Files modified
+2. Features added
+3. Existing features affected
+4. Tests actually executed
+5. Tests passed
+6. Tests failed
+7. Untested pathways
+8. Remaining risks
+
+Never report that everything works without supporting verification.
+If browser testing, database access, or another required testing capability is unavailable, explicitly state what could not be verified.
+
+### RULE 8: NO FAKE FUNCTIONALITY
+Never substitute fake data, simulated success messages, placeholder buttons, or hardcoded responses for actual functionality unless explicitly requested.
+If a feature is incomplete, clearly label it incomplete.
+
+## PRIMARY OBJECTIVE
+Build reliable, maintainable software where adding a new feature does not destroy previously working functionality.
