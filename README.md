@@ -45,6 +45,7 @@ Without Chrome the browser tests are reported as skipped, never as passed.
 - `seed.js`: demo data
 - `public/`: stylesheet, icon and `app.js` (the page script: knock out, drag and drop, Move/Share choosers, recording, …)
 - `test/`: regression tests (`npm test`)
+- `FEATURES.md`: every active feature and its test status (kept up to date with each change)
 
 ## Known gap
 

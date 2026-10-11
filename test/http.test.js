@@ -70,6 +70,25 @@ describe('every main page loads for each role', () => {
       for (const p of ADMIN_PAGES) { const r = await greg.get(p); assert.equal(r.status, 200, `${p} gave ${r.status}`); assert.match(r.body, /\/static\/app\.js/, `${p} should load app.js`); }
     });
   }
+  test('every team-member board, "talking to" page and call board linked from the board opens', async () => {
+    await greg.post('/view', { mode: 'simple' });
+    const home = (await greg.get('/')).body;
+    const links = [...new Set([...home.matchAll(/href="(\/\?(?:team|person|call)=\d+)"/g)].map(m => m[1]))];
+    assert.ok(links.filter(l => l.includes('team=')).length >= 5, 'the "See a team member\'s board" menu should list the team');
+    for (const l of links) {
+      const r = await greg.get(l); assert.equal(r.status, 200, `${l} gave ${r.status}`);
+      if (l.includes('team=')) assert.match(r.body, new RegExp(`data-board="${l.split('=')[1]}"`), `${l} should show that person's board`);
+    }
+  });
+  test('a board link for someone not on your team shows only your own board', async () => {
+    const r = await greg.get('/?team=999999'); assert.equal(r.status, 200);
+    assert.match(r.body, /data-board=""/, 'falls back to your own board, nobody else\'s');
+  });
+  test('a team member cannot open a colleague\'s board by editing the link', async () => {
+    const home = (await greg.get('/')).body, id = home.match(/href="\/\?team=(\d+)"/)[1];
+    const r = await priya.get(`/?team=${id}`); assert.equal(r.status, 200);
+    assert.match(r.body, /data-board=""/, 'she sees her own board, not the colleague\'s');
+  });
   test('team member pages', async () => {
     for (const p of ['/', '/items', '/projects', '/insights', '/notes', '/time-off', '/training', '/settings']) { const r = await priya.get(p); assert.equal(r.status, 200, `${p} gave ${r.status}`); }
   });

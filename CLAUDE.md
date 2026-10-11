@@ -7,7 +7,7 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 
 **Done**
 - Baseline copy of knockout committed (recoverable checkpoint).
-- Regression test suite: `npm test`, no outside packages. 58 tests: 34 server tests and 24 end-to-end tests in real Chrome.
+- Regression test suite: `npm test`, no outside packages. 61 tests: 37 server tests and 24 end-to-end tests in real Chrome.
   CI runs it on every push and pull request.
 - Missing page script `public/app.js` rebuilt. All interactive features work: confirmations, knock out with Undo,
   board drag and drop, the Move and Share choosers, recording calls, autosave, copy, local time zones.
@@ -23,6 +23,11 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 - The app-install (PWA) icon is SVG only; Chrome wants PNG icons.
 - Press-and-hold on touch screens opens the Move chooser; it does not support dragging with a finger.
 - Not tested: real phones, Safari, Firefox and a real microphone.
+
+## Features page (owner's request)
+`FEATURES.md` is the single list of every active feature, with its test status.
+**Update it in the same pull request as any change that adds, changes or removes a feature.**
+When a feature gets tests, move it from 🟡 to ✅. Never mark something ✅ unless an automated test proves it.
 
 ## Hosting decision
 - **DigitalOcean App Platform first**, with managed PostgreSQL. **Render is the fallback** if DigitalOcean causes trouble.
@@ -52,6 +57,7 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 ## Running it
 - Demo: `npm run demo`, then open http://localhost:3000 and sign in as `greg@demo.test` / `demo1234`
   (team member: `priya@demo.test`).
+- Features: `FEATURES.md` lists every active feature and its test status.
 - Tests: `npm test`. Browser tests need Chrome; set `CHROME_PATH` if it isn't found.
 - In the browser with no install: GitHub Codespaces (see `.devcontainer/`). It starts the demo automatically.
 
