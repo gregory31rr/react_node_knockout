@@ -136,6 +136,23 @@ describe('browser', { skip: NO_CHROME }, () => {
       await pg.eval(`document.querySelector('#quick').close()`);
     });
 
+    T('Period filter: pick 90 days, see completed vs remaining, tap Completed, reload', async () => {
+      await pg.goto(srv.base + '/items');
+      await pg.eval(`(() => { const s = document.querySelector('select[name=period]'); s.value = '90'; window.__ko_nav = 1; s.dispatchEvent(new Event('change', {bubbles:true})); })()`);
+      await pg.waitForLoad();
+      assert.match(await pg.eval('location.search'), /period=90/);
+      assert.ok(await pg.exists('[data-review="done"]') && await pg.exists('[data-review="open"]'), 'summary shows');
+      const done = await pg.eval(`Number(document.querySelector('[data-review="done"] b').textContent)`);
+      await pg.clickAndWait('[data-review="done"]');
+      assert.match(await pg.eval('location.search'), /status=done/);
+      assert.equal(await pg.count('li.item'), done, 'list matches the Completed number');
+      assert.equal(await pg.count('li.item:not(.is-done)'), 0, 'only completed items');
+      await pg.goto(await pg.eval('location.href'));
+      assert.equal(await pg.eval(`document.querySelector('select[name=period]').value`), '90', 'period kept after reload');
+      assert.equal(await pg.eval(`document.querySelector('[data-review="done"]').classList.contains('hot')`), true);
+      assert.deepEqual(pg.consoleErrors.filter(e => !/Manifest/.test(e)), []);
+    });
+
     T('quick add saves an item', async () => {
       await pg.goto(srv.base + '/items');
       await pg.click('[data-open-quick]');

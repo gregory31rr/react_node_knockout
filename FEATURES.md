@@ -3,7 +3,7 @@
 The single list of everything Knockout does today. **Update this page in the same pull request as any change that adds,
 changes or removes a feature** (see CLAUDE.md).
 
-Last updated: Oct 11, 2026 (PR #1: page script restored, tests added)
+Last updated: Oct 11, 2026 (PR #2: Period filter for reviewing work)
 
 **Status key**
 - ✅ **Tested**: automated tests click or call it and check the result was saved (`npm test`).
@@ -51,8 +51,10 @@ Who can use it: **Manager** = workspace admin · **Member** = team member with a
 |---|---|---|
 | Quick add (＋ button or "n" key) with a live preview of @person #project p1 2h fri | Everyone | ✅ |
 | Items list with filters that apply as you pick them | Everyone | Page loads ✅; filters 🟡 |
+| **Period filter** for reviewing work: Any time · Last 30 / 60 / 90 days · All time (13 months). Works with Open, Knocked out and Everything, and with "Who does it → My team" | Everyone (managers see the team) | ✅ |
+| **Completed vs remaining** summary for the period: Completed, Remaining and % done; tap a number to list those items | Everyone | ✅ |
 | 🥊 Knock out with Undo | Everyone | ✅ |
-| Export items to CSV | Everyone | ✅ |
+| Export items to CSV (uses the same filters, including Period) | Everyone | ✅ |
 | New item form | Everyone | 🟡 Page loads ✅ |
 | Item page: edit, answer, add a note, log time, delegate, delete (with confirm) | Varies | 🟡 Delete confirm ✅ |
 | Share / unshare an item with people | Owner, Manager | ✅ share; unshare 🟡 |

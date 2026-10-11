@@ -113,6 +113,7 @@ dialog.quick #q-text{min-height:52px;font-size:1.05rem}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:1px;box-shadow:var(--shadow)}
 .stat b{font-size:1.55rem;line-height:1.15;letter-spacing:-.02em;font-variant-numeric:tabular-nums} .stat span{color:var(--muted);font-size:.84rem;line-height:1.3}
 .stat.hot{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))} .stat.hot b{color:var(--accent)}
+a.stat{color:inherit;text-decoration:none} a.stat:hover{border-color:var(--accent)} .review .score{margin:6px 0 10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 .delta{font-size:.76rem;font-weight:600} .delta.good{color:var(--ok)} .delta.bad{color:var(--bad)}
 
 /* items */

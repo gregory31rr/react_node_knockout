@@ -59,10 +59,22 @@ async function remindFromText(req, res, text) {
 }
 
 // ───────────── the list ─────────────
-const FILTERS = ['q', 'kind', 'status', 'person', 'owner', 'project', 'priority', 'due', 'sort'];
-async function query(req) {
-  const s = W.scope(req), f = Object.fromEntries(FILTERS.map(k => [k, String(req.query[k] || '')])), where = [s.sql], args = [...s.args];
+const FILTERS = ['q', 'kind', 'status', 'person', 'owner', 'project', 'priority', 'due', 'period', 'sort'];
+/**
+ * Period: for reviewing work. Done items count by when they were knocked out; open items by when they were added.
+ * '' = any time (no limit). 'all' = all time, which for reviews means the last 13 months.
+ */
+const PERIODS = [['', 'Any time'], ['30', 'Last 30 days'], ['60', 'Last 60 days'], ['90', 'Last 90 days'], ['all', 'All time (13 months)']];
+function periodStart(p) {
+  if (/^(30|60|90)$/.test(p)) return U.addDays(U.today(), -Number(p));
+  if (p === 'all') { const d = new Date(U.today() + 'T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 13); return d.toISOString().slice(0, 10); }
+  return null;
+}
+async function query(req, over = {}) {
+  const s = W.scope(req), f = { ...Object.fromEntries(FILTERS.map(k => [k, String(req.query[k] || '')])), ...over }, where = [s.sql], args = [...s.args];
   if (f.status === 'done') where.push("i.status='done'"); else if (f.status === 'all') { } else if (A.STATUS[f.status]) { where.push('i.status=?'); args.push(f.status); } else where.push(`i.status IN ${W.OPEN}`);
+  const since = periodStart(f.period);
+  if (since) { where.push("((i.status='done' AND i.completed_at >= ?) OR (i.status<>'done' AND i.created_at >= ?))"); args.push(since, since); }
   if (A.KIND[f.kind]) { where.push('i.kind=?'); args.push(f.kind); }
   if (f.person) { where.push('i.person_id=?'); args.push(Number(f.person) || 0); }
   if (f.owner === 'me') { if (req.admin) where.push('i.owner_person_id IS NULL'); else { where.push('i.owner_person_id=?'); args.push(req.me?.id || 0); } }
@@ -82,6 +94,21 @@ app.get('/items', async (req, res) => {
   const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
   const sel = (name, opts) => html`<label>${opts[0]}<select name="${name}" data-autosubmit>${opts.slice(1).map(([v, l]) => html`<option value="${v}" ${f[name] === String(v) ? raw('selected') : ''}>${l}</option>`)}</select></label>`;
   const loe = rows.reduce((a, i) => a + Number(i.loe || 0), 0), spent = rows.reduce((a, i) => a + Number(i.spent || 0), 0);
+  // Reviewing a period: completed vs remaining for the same filters, whichever status is showing.
+  let review = '';
+  if (periodStart(f.period)) {
+    const done = (await query(req, { status: 'done' })).rows.length, open = (await query(req, { status: '' })).rows.length, total = done + open;
+    const link = status => '/items?' + new URLSearchParams(Object.entries({ ...f, status }).filter(([, v]) => v)).toString();
+    const label = PERIODS.find(p => p[0] === f.period)[1].replace(/^Last /, 'the last ').replace(/^All time/, 'all time');
+    review = html`<section class="card review" aria-label="Completed versus remaining">
+      <div class="card-head"><h2>Work in ${label}</h2><span class="muted small">${total} item${total === 1 ? '' : 's'}</span></div>
+      <div class="score">
+        <a class="stat ${f.status === 'done' ? 'hot' : ''}" href="${link('done')}" data-review="done"><b>${done}</b><span>Completed</span></a>
+        <a class="stat ${!f.status ? 'hot' : ''}" href="${link('')}" data-review="open"><b>${open}</b><span>Remaining</span></a>
+        <a class="stat ${f.status === 'all' ? 'hot' : ''}" href="${link('all')}" data-review="all"><b>${total ? Math.round(done / total * 100) : 0}%</b><span>Done · see all</span></a></div>
+      <div class="bar" role="img" aria-label="${done} completed, ${open} remaining"><i style="width:${total ? Math.round(done / total * 100) : 0}%"></i></div>
+      <p class="muted small">Completed = knocked out in this period. Remaining = still open, added in this period. Tap a number to list those items.</p></section>`;
+  }
   res.send(await page(req, { title: 'Items', wide: true, body: html`<div class="head"><div><h1>Items</h1><p class="muted">${rows.length} shown${loe ? ` · ${A.loeText(loe)} LOE` : ''}${spent ? ` · ${A.loeText(spent)} logged` : ''}</p></div>
       <div class="actions"><a class="btn" href="/items/new">New item</a><a class="btn" href="/items.csv${qs ? '?' + qs : ''}">Spreadsheet</a></div></div>
     <form method="get" class="filters card">
@@ -93,8 +120,10 @@ app.get('/items', async (req, res) => {
       ${sel('project', ['Project', ['', 'All projects'], ...(await all('SELECT id, name FROM projects WHERE workspace_id=? ORDER BY name', req.ws.id)).map(p => [p.id, p.name])])}
       ${sel('priority', ['Priority', ['', 'Any'], ['1', 'P1 Urgent'], ['2', 'P2 High'], ['3', 'P3 Normal'], ['4', 'P4 Low']])}
       ${sel('due', ['Due', ['', 'Any time'], ['overdue', 'Late'], ['week', 'Within 7 days'], ['none', 'No date']])}
+      ${sel('period', ['Period', ...PERIODS])}
       ${sel('sort', ['Sort', ['', 'Due date'], ['priority', 'Priority'], ['loe', 'Biggest LOE'], ['new', 'Newest'], ['done', 'Recently knocked out']])}
       <button class="btn">Show</button>${qs ? html`<a class="link" href="/items">Clear</a>` : ''}</form>
+    ${review}
     <section class="card">${V.list(req, rows, { risk, empty: 'No items match.' })}</section>` }));
 });
 app.get('/items.csv', async (req, res) => {
