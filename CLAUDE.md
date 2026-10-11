@@ -7,24 +7,24 @@ Branches: `dev` → `stage` → `main` (production). Work lands in `dev` by pull
 
 **Done**
 - Baseline copy of knockout committed (recoverable checkpoint).
-- Regression test suite: `npm test`, no outside packages. 101 tests on PostgreSQL (77 on SQLite): server, real-Chrome end-to-end, and database-connection tests.
+- Regression test suite: `npm test`, no outside packages. 110 tests on PostgreSQL (82 on SQLite): server, real-Chrome end-to-end, and database-connection tests.
   CI runs it on every push and pull request.
 - Missing page script `public/app.js` rebuilt. All interactive features work: confirmations, knock out with Undo,
   board drag and drop, the Move and Share choosers, recording calls, autosave, copy, local time zones.
 - Fixed: the `[hidden]` CSS rule was inside a comment; reminders and calls were saved in the wrong time zone.
-- Pull request #1 (`fix/app-js` → `dev`) is open for review. Not merged yet.
+- Pull requests #1, #2 and #3 are merged into `dev`.
 - Items **Period filter** (30 / 60 / 90 days / all time = 13 months) with a completed-vs-remaining summary.
-  Pull request #2 (`feature/review-filters`, built on #1). Merge #1 first.
   Definitions: Completed = knocked out in the period; Remaining = still open and added in the period.
 - **PostgreSQL support** (`lib/pg.js`, built-in modules only: SCRAM sign-in, TLS via sslmode, pool, transactions).
-  The full suite passes on PostgreSQL; CI runs it on both databases. Pull request #3 (`feature/postgres`).
+  The full suite passes on PostgreSQL; CI runs it on both databases.
   Fixed during testing: big answers (recordings) were read quadratically (20 MB: 48 s → 0.3 s).
+- **Safe on several servers** (PR #4, `feature/multi-server`): sign-in lockout and flood protection count in the database
+  (`lib/limits.js`, table `ko_counters`, migration 1); background chores take a PostgreSQL advisory lock so they run once.
+  Proven by tests running 2 servers and 4 chore processes on one database (old code: reminders sent ×4).
 
 **Known gaps (not fixed yet)**
-- Scale blockers for large user counts:
-  - The rate limiter lives in one process's memory.
-  - Background jobs run in every web server.
-  - Call recordings (up to 60 MB each) are stored in the database and buffered in memory.
+- Last scale blocker: call recordings (up to 40 MB each) are stored in the database and buffered in memory.
+  Move to object storage (DigitalOcean Spaces) once the account exists.
 - The app-install (PWA) icon is SVG only; Chrome wants PNG icons.
 - Press-and-hold on touch screens opens the Move chooser; it does not support dragging with a finger.
 - Not tested: real phones, Safari, Firefox and a real microphone.
@@ -45,11 +45,8 @@ When a feature gets tests, move it from 🟡 to ✅. Never mark something ✅ un
 1. Merge PR #1 after review.
 2. ~~Restore PostgreSQL support~~ Done (PR #3). Local testing: a PostgreSQL 16 server is installed in Claude's workspace
    (`/usr/lib/postgresql/16/bin`); run it as the `postgres` user with SCRAM + TLS, then `TEST_DATABASE_URL=… npm test`.
-3. Fix the scale blockers:
-   - a shared rate limiter (Redis)
-   - jobs that run once across all servers
-   - recordings moved to object storage (Spaces or S3) with streaming uploads
-   - monitoring
+3. Scale blockers: ~~shared rate limiter~~ and ~~run-once jobs~~ done (PR #4, in the database, no Redis needed).
+   Left: recordings to object storage (Spaces) with streaming uploads; monitoring.
 4. Once the DigitalOcean account and token exist: write the deploy workflow, deploy `stage` and then `main`, and verify `/health` on the live site.
 5. Later, only after production readiness: move the UI to React with an Express API, one area at a time.
    This is a maintainability choice; it does not help the app scale.

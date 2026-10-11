@@ -3,7 +3,7 @@
 The single list of everything Knockout does today. **Update this page in the same pull request as any change that adds,
 changes or removes a feature** (see CLAUDE.md).
 
-Last updated: Oct 11, 2026 (PR #3: PostgreSQL support)
+Last updated: Oct 11, 2026 (PR #4: safe to run on several servers)
 
 **Status key**
 - ✅ **Tested**: automated tests click or call it and check the result was saved (`npm test`).
@@ -128,7 +128,9 @@ Who can use it: **Manager** = workspace admin · **Member** = team member with a
 | "Are you sure?" before deletes and other one-way actions | ✅ |
 | Times shown in each viewer's own time zone | ✅ |
 | Forms from other websites refused (CSRF token + origin check) | ✅ |
-| Flood protection on changes | 🟡 ⚠️ Counts per server, so it won't hold with several servers (scale blocker) |
+| Flood protection on changes (120 a minute per person or address; `RATE_PER_MIN`) | ✅ shared by all servers |
+| Sign-in lockout: 5 wrong passwords per email or 30 per address in ~15 minutes | ✅ shared by all servers |
+| Background chores (reminders, call alerts, expiry warnings, clean-up) run once even with several servers | ✅ |
 | Members kept out of manager-only pages | ✅ |
 | Security headers, encrypted secrets, hourly clean-up of old sessions | 🟡 |
 | Health check `GET /health` | ✅ |
@@ -138,6 +140,6 @@ Who can use it: **Manager** = workspace admin · **Member** = team member with a
 | Works on phones (tab bar, big buttons) | 🟡 Not tested on real phones |
 
 ## Not yet built (planned)
-- Shared rate limiting, run-once background jobs, recordings in object storage (scale blockers).
+- Recordings in object storage (last scale blocker; needs DigitalOcean Spaces).
 - Deploy to DigitalOcean (Render as fallback).
 - React frontend with an Express API (after production readiness).

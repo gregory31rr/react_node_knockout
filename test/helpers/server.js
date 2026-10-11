@@ -59,10 +59,16 @@ function directDb(dbUrl, dataDir) {
   };
 }
 
-async function startServer(env = {}) {
+/**
+ * startServer(env, { shareDbWith }) — shareDbWith: another test server whose PostgreSQL database this one uses
+ * too (two servers, one database, like production behind a load balancer).
+ */
+async function startServer(env = {}, { shareDbWith } = {}) {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ko-test-'));
-  const pgDb = PG_URL ? await freshPgDatabase() : null;
+  if (shareDbWith && shareDbWith.dialect !== 'pg') throw new Error('Sharing a database between servers needs PostgreSQL (TEST_DATABASE_URL)');
+  const ownDb = PG_URL && !shareDbWith ? await freshPgDatabase() : null;
+  const pgDb = shareDbWith ? { url: shareDbWith.dbUrl } : ownDb;
   const log = [];
   const proc = spawn(process.execPath, ['server.js'], {
     cwd: ROOT,
@@ -80,7 +86,7 @@ async function startServer(env = {}) {
   }
   let db = null;
   return {
-    base, port, dataDir, log, dialect: pgDb ? 'pg' : 'sqlite',
+    base, port, dataDir, log, dialect: pgDb ? 'pg' : 'sqlite', dbUrl: pgDb?.url || null,
     /** Lines the server printed that look like crashes (500s are logged with a timestamp and the request). */
     errors: () => log.join('').split('\n').filter(l => /Error|could not start|failed/i.test(l)),
     /** Direct access to this test's database: await srv.db().run('UPDATE … WHERE id=?', 5) */
@@ -95,7 +101,7 @@ async function startServer(env = {}) {
       }
       proc.stdout.destroy(); proc.stderr.destroy();
       fs.rmSync(dataDir, { recursive: true, force: true });
-      if (pgDb) await dropPgDatabase(pgDb.name);
+      if (ownDb) await dropPgDatabase(ownDb.name);   // a shared database is dropped by the server that made it
     },
   };
 }
