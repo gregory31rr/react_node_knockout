@@ -19,6 +19,19 @@ after(async () => { await srv?.stop(); });
 const ids = (html, re) => [...html.matchAll(re)].map(m => Number(m[1]));
 const JSON_H = { accept: 'application/json' };
 
+describe('which database', () => {
+  test('the server is using the database these tests think it is (PostgreSQL when TEST_DATABASE_URL is set)', async () => {
+    assert.equal(srv.dialect, process.env.TEST_DATABASE_URL ? 'pg' : 'sqlite');
+    // The server's demo data must be readable straight from this test's own database.
+    const [{ n }] = await srv.db().all('SELECT count(*) AS n FROM items');
+    assert.ok(Number(n) > 50, `expected the server's demo items in this database, found ${n}`);
+    if (srv.dialect === 'pg') {
+      const [{ db }] = await srv.db().all('SELECT current_database() AS db');
+      assert.match(db, /^ko_test_/, 'each test file gets its own fresh PostgreSQL database');
+    }
+  });
+});
+
 describe('basics', () => {
   test('health check answers ok', async () => {
     const r = await fetch(srv.base + '/health'); assert.equal(r.status, 200); assert.equal(await r.text(), 'ok');

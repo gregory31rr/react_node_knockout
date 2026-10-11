@@ -3,7 +3,7 @@
 The single list of everything Knockout does today. **Update this page in the same pull request as any change that adds,
 changes or removes a feature** (see CLAUDE.md).
 
-Last updated: Oct 11, 2026 (PR #2: Period filter for reviewing work)
+Last updated: Oct 11, 2026 (PR #3: PostgreSQL support)
 
 **Status key**
 - ✅ **Tested**: automated tests click or call it and check the result was saved (`npm test`).
@@ -132,11 +132,12 @@ Who can use it: **Manager** = workspace admin · **Member** = team member with a
 | Members kept out of manager-only pages | ✅ |
 | Security headers, encrypted secrets, hourly clean-up of old sessions | 🟡 |
 | Health check `GET /health` | ✅ |
+| **PostgreSQL database** for production (`DATABASE_URL`): secure sign-in (SCRAM), encrypted connections, connection pool, all-or-nothing saves | ✅ (whole app suite runs on PostgreSQL) |
+| Built-in SQLite database for demos and local use (no `DATABASE_URL`) | ✅ |
 | Installable phone app (manifest) | ✅ manifest ⚠️ SVG-only icon; Chrome wants PNG |
 | Works on phones (tab bar, big buttons) | 🟡 Not tested on real phones |
 
 ## Not yet built (planned)
-- PostgreSQL connection (`lib/pg.js`). Production can't run until this is added.
 - Shared rate limiting, run-once background jobs, recordings in object storage (scale blockers).
 - Deploy to DigitalOcean (Render as fallback).
 - React frontend with an Express API (after production readiness).
