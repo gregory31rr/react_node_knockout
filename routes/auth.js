@@ -55,9 +55,11 @@ app.post('/signup', async (req, res) => {
 });
 
 // Sign-in throttle: 5 wrong passwords for one email (or 30 from one address) in 15 minutes → wait 15 minutes.
-const fails = new Map();
-const tooMany = k => { const f = fails.get(k); return f && f.n >= (k.startsWith('ip:') ? 30 : 5) && Date.now() - f.t < 15 * 60e3; };
-const fail = k => { const f = fails.get(k); if (!f || Date.now() - f.t > 15 * 60e3) fails.set(k, { n: 1, t: Date.now() }); else f.n++; if (fails.size > 20000) fails.clear(); };
+// Wrong passwords: 5 per email or 30 per address in about 15 minutes, then locked. Counted in the database,
+// so every server sees the same count (lib/limits.js).
+const L = require('../lib/limits'), LOCK_MS = 15 * 60e3;
+const tooMany = async k => (await L.count('login:' + k, LOCK_MS)) >= (k.startsWith('ip:') ? 30 : 5);
+const fail = k => L.hit('login:' + k, LOCK_MS);
 
 app.get('/login', async (req, res) => {
   if (req.user) return res.redirect(nextUrl(req.query.next));
@@ -73,11 +75,11 @@ app.get('/login', async (req, res) => {
 app.post('/login', async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase(), k = 'e:' + email, ki = 'ip:' + req.ip;
   const log = (ok, why, uid) => run('INSERT INTO login_log(email,user_id,ok,why,ip) VALUES(?,?,?,?,?)', email.slice(0, 200), uid || null, ok ? 1 : 0, why || null, req.ip);
-  if (tooMany(k) || tooMany(ki)) { await log(false, 'locked'); bad('Too many tries. Wait 15 minutes, or reset your password.'); }
+  if (await tooMany(k) || await tooMany(ki)) { await log(false, 'locked'); bad('Too many tries. Wait 15 minutes, or reset your password.'); }
   const u = await one('SELECT * FROM users WHERE email=?', email);
-  if (!u || !U.checkPassword(String(req.body.password || ''), u.pass_hash)) { fail(k); fail(ki); await log(false, u ? 'wrong password' : 'no account', u?.id); bad('That email and password do not match.'); }
+  if (!u || !U.checkPassword(String(req.body.password || ''), u.pass_hash)) { await fail(k); await fail(ki); await log(false, u ? 'wrong password' : 'no account', u?.id); bad('That email and password do not match.'); }
   if (u.disabled_at) { await log(false, 'account turned off', u.id); bad('This account is turned off. Ask your manager or the Knockout owner.'); }
-  fails.delete(k); await log(true, null, u.id);
+  await L.reset('login:' + k, LOCK_MS); await log(true, null, u.id);
   await A.startSession(req, res, u);
   res.redirect(nextUrl(req.body.next));
 });

@@ -24,12 +24,10 @@ const CSP = "default-src 'self'; img-src 'self' data: blob:; media-src 'self' bl
 const MANIFEST = { name: 'Knockout', short_name: 'Knockout', description: 'Track, delegate and knock out your work.', start_url: '/', scope: '/', display: 'standalone', background_color: '#14182b', theme_color: '#14182b', icons: [{ src: '/static/icon.svg', sizes: 'any', type: 'image/svg+xml' }] };
 
 // Flood protection: at most RATE_PER_MIN form posts a minute per person (or per address when signed out).
-const RATE = Number(process.env.RATE_PER_MIN || 120), hits = new Map();
-function rateLimit(key) {
-  const now = Date.now(), h = hits.get(key) || { n: 0, t: now };
-  if (now - h.t > 60e3) { h.n = 0; h.t = now; }
-  if (++h.n > RATE) throw new A.HttpError(429, 'Too many changes in a minute. Wait a moment and try again.');
-  hits.set(key, h); if (hits.size > 50000) hits.clear();
+// Counted in the database, so the limit holds across every server (lib/limits.js).
+const RATE = Number(process.env.RATE_PER_MIN || 120);
+async function rateLimit(key) {
+  if (await require('./lib/limits').hit('rate:' + key, 60e3, { sliding: false }) > RATE) throw new A.HttpError(429, 'Too many changes in a minute. Wait a moment and try again.');
 }
 /** The visitor's address. Behind DigitalOcean's proxy the LAST X-Forwarded-For entry is the real one. */
 const clientIp = req => { const x = String(req.headers['x-forwarded-for'] || '').split(',').map(s => s.trim()).filter(Boolean); return x.length && process.env.TRUST_PROXY !== '0' ? x[x.length - 1] : req.socket.remoteAddress; };
@@ -80,7 +78,7 @@ const server = http.createServer(async (req, res) => {
       if (req.session && !exempt && token !== req.session.csrf) throw new A.HttpError(403, 'This form expired. Go back, refresh the page and try again.');
       const origin = req.headers.origin;
       if (origin && origin !== 'null' && new URL(origin).host !== req.headers.host) throw new A.HttpError(403, 'Forms from other websites are not allowed.');
-      rateLimit(req.user ? 'u' + req.user.id : 'ip' + req.ip);
+      await rateLimit(req.user ? 'u' + req.user.id : 'ip' + req.ip);
       if (req.ws && req.ws.status === 'paused' && !req.owner && !['/logout', '/theme', '/settings/export'].includes(req.path)) throw new A.HttpError(403, 'This workspace is paused, so it is read only. Nothing was changed.');
     }
     for (const h of route.handlers) { await h(req, res); if (res.writableEnded || res.headersSent) break; }
