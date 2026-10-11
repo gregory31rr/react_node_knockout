@@ -10,6 +10,8 @@ const { launch, chromePath, sleep } = require('./helpers/browser');
 /** In page scripts: is this element actually shown on screen (not just flagged)? */
 const SHOWN = `const shown = el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';`;
 const NO_CHROME = !chromePath() && 'Chrome not found: set CHROME_PATH to run browser tests';
+// In CI, skipping is not allowed: a green run must mean the browser tests really ran.
+if (NO_CHROME && process.env.REQUIRE_BROWSER === '1') { test('Chrome is available (REQUIRE_BROWSER=1)', () => { assert.fail(NO_CHROME); }); }
 let srv, chrome, pg;
 /** Every browser test gets 60 seconds, so one stuck step fails that test instead of freezing the run. */
 const T = (name, fn) => test(name, { timeout: 60_000 }, fn);
